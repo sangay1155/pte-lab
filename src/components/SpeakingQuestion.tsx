@@ -13,7 +13,6 @@ export const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({ question, is
   const {
     state,
     preSeconds,
-    timeLeft,
     audioBlob,
     analyser,
     prepareRecording,
