@@ -1,14 +1,15 @@
 import React, { useEffect, useRef } from 'react';
 import { Mic, Square, Info } from 'lucide-react';
-import { PTEQuestion } from '../types/pte';
+import type { PTEQuestion } from '../types/pte';
 import { usePTEAudioRecorder } from '../hooks/usePTEAudioRecorder';
 
 interface SpeakingQuestionProps {
   question: PTEQuestion;
   isPracticeMode: boolean;
+  onAnswer?: (id: string, value: string) => void;
 }
 
-export const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({ question, isPracticeMode }) => {
+export const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({ question, isPracticeMode, onAnswer }) => {
   const {
     recorderState,
     countdown,
@@ -24,6 +25,14 @@ export const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({ question, is
   useEffect(() => {
     initiateRecordingSequence();
   }, [question, initiateRecordingSequence]);
+
+  useEffect(() => {
+    if (recorderState === 'completed' && recordedBlob && onAnswer) {
+      try {
+        onAnswer(question.id, 'recording_saved')
+      } catch {}
+    }
+  }, [recorderState, recordedBlob, onAnswer])
 
   // Real-time Canvas Waveform Rendering Loop
   useEffect(() => {

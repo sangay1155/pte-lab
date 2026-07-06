@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Menu, ChevronRight, ChevronLeft, Clock, HelpCircle } from 'lucide-react';
-import { PTEQuestion } from '../types/pte';
+import type { PTEQuestion } from '../types/pte';
 
 interface ExamLayoutProps {
   children: React.ReactNode;
