@@ -1,65 +1,43 @@
 import React, { useEffect, useState } from 'react'
 import './App.css'
-import { ExamLayout } from './components/ExamLayout'
-import { SpeakingQuestion } from './components/SpeakingQuestion'
-import ReadingQuestion from './components/ReadingQuestion'
-import ListeningQuestion from './components/ListeningQuestion'
-import { LandingPage } from './components/LandingPage'
+import { Dashboard } from './components/Dashboard'
+import { ModernExam } from './components/ModernExam'
 import { mockQuestions } from './types/pte'
 import type { PTEQuestion } from './types/pte'
 import { loadAnswers, saveAnswers } from './utils/answers'
 
+type AppMode = 'dashboard' | 'practice' | 'exam'
+
 function App() {
-  const [showLanding, setShowLanding] = useState(true)
+  const [mode, setMode] = useState<AppMode>('dashboard')
   const [questions] = useState<PTEQuestion[]>(mockQuestions)
-  const [current, setCurrent] = useState(0)
-  const [isPractice, setIsPractice] = useState(true)
   const [answers, setAnswers] = useState<Record<string, string>>({})
 
   useEffect(() => setAnswers(loadAnswers()), [])
   useEffect(() => saveAnswers(answers), [answers])
 
-  function onNext() {
-    setCurrent((c) => Math.min(questions.length - 1, c + 1))
-  }
-  function onPrev() {
-    setCurrent((c) => Math.max(0, c - 1))
-  }
-  function onSelectQuestion(i: number) {
-    setCurrent(i)
-  }
+  useEffect(() => setAnswers(loadAnswers()), [])
+  useEffect(() => saveAnswers(answers), [answers])
 
-  const onAnswer = (id: string, value: string) => setAnswers((a) => ({ ...a, [id]: value }))
-
-  const q = questions[current]
-
-  if (showLanding) {
-    return <LandingPage onStartPractice={() => setShowLanding(false)} />
+  if (mode === 'dashboard') {
+    return (
+      <Dashboard
+        onStartPractice={() => setMode('practice')}
+        onStartExam={() => setMode('exam')}
+      />
+    )
   }
 
-  return (
-    <ExamLayout
-      currentQuestion={q}
-      currentIndex={current}
-      totalQuestions={questions.length}
-      onNext={onNext}
-      onPrev={onPrev}
-      isPracticeMode={isPractice}
-      setIsPracticeMode={setIsPractice}
-      onSelectQuestion={onSelectQuestion}
-      questions={questions}
-    >
-      {q.section === 'speaking-writing' && (
-        <SpeakingQuestion question={q} isPracticeMode={isPractice} onAnswer={onAnswer} />
-      )}
-      {q.section === 'reading' && (
-        <ReadingQuestion question={q} practiceMode={isPractice} onNext={onNext} onAnswer={onAnswer} />
-      )}
-      {q.section === 'listening' && (
-        <ListeningQuestion question={q} practiceMode={isPractice} onNext={onNext} onAnswer={onAnswer} />
-      )}
-    </ExamLayout>
-  )
+  if (mode === 'practice' || mode === 'exam') {
+    return (
+      <ModernExam
+        questions={questions}
+        onBack={() => setMode('dashboard')}
+      />
+    )
+  }
+
+  return null
 }
 
 export default App
