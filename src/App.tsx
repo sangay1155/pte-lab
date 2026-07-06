@@ -4,11 +4,13 @@ import { ExamLayout } from './components/ExamLayout'
 import { SpeakingQuestion } from './components/SpeakingQuestion'
 import ReadingQuestion from './components/ReadingQuestion'
 import ListeningQuestion from './components/ListeningQuestion'
+import { LandingPage } from './components/LandingPage'
 import { mockQuestions } from './types/pte'
 import type { PTEQuestion } from './types/pte'
 import { loadAnswers, saveAnswers } from './utils/answers'
 
 function App() {
+  const [showLanding, setShowLanding] = useState(true)
   const [questions] = useState<PTEQuestion[]>(mockQuestions)
   const [current, setCurrent] = useState(0)
   const [isPractice, setIsPractice] = useState(true)
@@ -30,6 +32,10 @@ function App() {
   const onAnswer = (id: string, value: string) => setAnswers((a) => ({ ...a, [id]: value }))
 
   const q = questions[current]
+
+  if (showLanding) {
+    return <LandingPage onStartPractice={() => setShowLanding(false)} />
+  }
 
   return (
     <ExamLayout
