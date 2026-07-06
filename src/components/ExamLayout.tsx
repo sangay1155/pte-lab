@@ -27,16 +27,16 @@ export const ExamLayout: React.FC<ExamLayoutProps> = ({
   onSelectQuestion,
   questions,
 }) => {
-  const [timeLeft, setTimeLeft] = useState(currentQuestion.timeLimitSeconds);
+  const [timeLeft, setTimeLeft] = useState<number>(currentQuestion.timeLimitSeconds ?? 60);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
-    setTimeLeft(currentQuestion.timeLimitSeconds);
+    setTimeLeft(currentQuestion.timeLimitSeconds ?? 60);
   }, [currentQuestion]);
 
   useEffect(() => {
-    if (timeLeft <= 0) return;
-    const timer = setInterval(() => setTimeLeft((prev) => prev - 1), 1000);
+    if (!timeLeft || timeLeft <= 0) return;
+    const timer = setInterval(() => setTimeLeft((prev) => Math.max(0, prev - 1)), 1000);
     return () => clearInterval(timer);
   }, [timeLeft]);
 
@@ -46,7 +46,7 @@ export const ExamLayout: React.FC<ExamLayoutProps> = ({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const isTimeCritical = timeLeft < 15;
+  const isTimeCritical = timeLeft !== undefined && timeLeft < 15;
   const sectionTitles: Record<string, string> = {
     'speaking-writing': 'Speaking & Writing',
     'reading': 'Reading Assessment Module',
