@@ -1,100 +1,151 @@
-import React, { useMemo, useState, useEffect } from 'react'
-import { PTEQuestion, mockQuestions } from '../types/pte'
-import { loadAnswers, saveAnswers, scoreAnswers, AnswerMap } from '../utils/answers'
-import SpeakingQuestion from './SpeakingQuestion'
-import ReadingQuestion from './ReadingQuestion'
-import ListeningQuestion from './ListeningQuestion'
+import React, { useState, useEffect } from 'react';
+import { Menu, ChevronRight, ChevronLeft, Clock, HelpCircle } from 'lucide-react';
+import { PTEQuestion } from '../types/pte';
 
-function Timer({ seconds }: { seconds: number | null }) {
-  const m = seconds ? Math.floor(seconds / 60) : 0
-  const s = seconds ? seconds % 60 : 0
-  const danger = (seconds ?? 0) <= 30
-  return (
-    <div className={`px-3 py-1 rounded-md ${danger ? 'text-red-600' : 'text-sky-800'}`}>
-      <strong style={{ fontSize: 18 }}>
-        {String(m).padStart(2, '0')}:{String(s).padStart(2, '0')}
-      </strong>
-    </div>
-  )
+interface ExamLayoutProps {
+  children: React.ReactNode;
+  currentQuestion: PTEQuestion;
+  currentIndex: number;
+  totalQuestions: number;
+  onNext: () => void;
+  onPrev: () => void;
+  isPracticeMode: boolean;
+  setIsPracticeMode: (val: boolean) => void;
+  onSelectQuestion: (index: number) => void;
+  questions: PTEQuestion[];
 }
 
-export default function ExamLayout() {
-  const questions = useMemo<PTEQuestion[]>(() => mockQuestions, [])
-  const [index, setIndex] = useState(0)
-  const [practice, setPractice] = useState(true)
-  const [answers, setAnswers] = useState<AnswerMap>({})
+export const ExamLayout: React.FC<ExamLayoutProps> = ({
+  children,
+  currentQuestion,
+  currentIndex,
+  totalQuestions,
+  onNext,
+  onPrev,
+  isPracticeMode,
+  setIsPracticeMode,
+  onSelectQuestion,
+  questions,
+}) => {
+  const [timeLeft, setTimeLeft] = useState(currentQuestion.timeLimitSeconds);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
-    setAnswers(loadAnswers())
-  }, [])
+    setTimeLeft(currentQuestion.timeLimitSeconds);
+  }, [currentQuestion]);
 
   useEffect(() => {
-    saveAnswers(answers)
-  }, [answers])
+    if (timeLeft <= 0) return;
+    const timer = setInterval(() => setTimeLeft((prev) => prev - 1), 1000);
+    return () => clearInterval(timer);
+  }, [timeLeft]);
 
-  const q = questions[index]
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const isTimeCritical = timeLeft < 15;
+  const sectionTitles: Record<string, string> = {
+    'speaking-writing': 'Speaking & Writing',
+    'reading': 'Reading Assessment Module',
+    'listening': 'Listening Assessment Module',
+  };
 
   return (
-    <div className="min-h-screen bg-white text-gray-800">
-      <header className="flex items-center justify-between p-4 border-b">
-        <div>
-          <h2 className="text-lg font-semibold">{q.section.toUpperCase()}</h2>
-          <div className="text-sm text-gray-500">Question {index + 1} of {questions.length}</div>
+    <div className="h-screen w-screen bg-[#f8fafc] flex flex-col font-sans overflow-hidden select-none text-slate-800 antialiased">
+      {/* Pearson Authentic Top Banner Structure */}
+      <header className="bg-[#0c2340] text-white h-14 min-h-[56px] px-6 flex items-center justify-between shadow-sm z-30">
+        <div className="flex items-center space-x-4">
+          <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-1 hover:bg-[#1e3a5f] rounded transition text-slate-300 hover:text-white">
+            <Menu className="w-5 h-5" />
+          </button>
+          <div className="text-sm font-semibold tracking-wide border-l border-slate-600 pl-4 text-slate-200">
+            {sectionTitles[currentQuestion.section]}
+          </div>
         </div>
-        <div className="flex items-center gap-4">
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={practice} onChange={(e) => setPractice(e.target.checked)} />
-            <span className="text-sm">Practice Mode</span>
-          </label>
-          <Timer seconds={q.timeLimitSeconds ?? null} />
-          <button className="bg-sky-600 text-white px-4 py-2 rounded" onClick={() => setIndex((i) => Math.min(questions.length - 1, i + 1))}>Next</button>
+
+        <div className="flex items-center space-x-6">
+          <div className="bg-[#153054] px-3 py-1 rounded text-xs font-semibold tracking-wider text-slate-300 border border-slate-700/50">
+            Item <span className="text-[#ffc000] font-bold">{currentIndex + 1}</span> of {totalQuestions}
+          </div>
+
+          <div className={`flex items-center space-x-2 px-3 py-1 rounded text-sm font-bold border transition-all duration-300 ${
+            isTimeCritical ? 'bg-red-600 border-red-700 animate-pulse text-white' : 'bg-[#1a365d] border-slate-700 text-slate-200'
+          }`}>
+            <Clock className="w-4 h-4 text-slate-400" />
+            <span className="font-mono tracking-widest">{formatTime(timeLeft)}</span>
+          </div>
+
+          <div className="flex items-center bg-[#153054] rounded p-0.5 border border-slate-700">
+            <button onClick={() => setIsPracticeMode(false)} className={`px-2.5 py-0.5 text-[11px] rounded font-bold uppercase tracking-wider transition ${!isPracticeMode ? 'bg-[#0070c0] text-white shadow-sm' : 'text-slate-400'}`}>Exam</button>
+            <button onClick={() => setIsPracticeMode(true)} className={`px-2.5 py-0.5 text-[11px] rounded font-bold uppercase tracking-wider transition ${isPracticeMode ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-400'}`}>Practice</button>
+          </div>
         </div>
       </header>
 
-      <main className="p-6 md:flex md:gap-6">
-        <aside className="w-60 hidden md:block border-r pr-4">
-          <h4 className="font-semibold mb-2">Questions</h4>
-          <ul className="grid gap-2">
-            {questions.map((qq, i) => (
-              <li key={qq.id}>
-                <button className={`w-full text-left p-2 rounded ${i === index ? 'bg-sky-100' : 'hover:bg-gray-50'}`} onClick={() => setIndex(i)}>
-                  {i + 1}. {qq.type}
-                </button>
-              </li>
+      {/* Main Container Viewport Shell Frame */}
+      <div className="flex flex-1 relative overflow-hidden">
+        {/* Navigation Sidebar Panel */}
+        <aside className={`absolute inset-y-0 left-0 w-64 bg-white border-r border-slate-200 shadow-xl z-20 transform transition-transform duration-200 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+          <div className="p-4 bg-slate-50 border-b border-slate-200 font-bold text-xs tracking-widest uppercase text-slate-400">Navigation Matrix</div>
+          <nav className="p-2 space-y-0.5 overflow-y-auto h-[calc(100vh-120px)]">
+            {questions.map((q, idx) => (
+              <button 
+                key={q.id} 
+                onClick={() => { onSelectQuestion(idx); setIsSidebarOpen(false); }} 
+                className={`w-full text-left px-3 py-2 rounded text-xs font-semibold transition flex items-center justify-between ${idx === currentIndex ? 'bg-blue-50 text-[#0070c0]' : 'hover:bg-slate-100 text-slate-600'}`}
+              >
+                <span className="truncate capitalize">{idx + 1}. {q.type.replace(/-/g, ' ')}</span>
+                <span className="text-[9px] uppercase px-1 py-0.2 bg-slate-200 rounded text-slate-500 font-bold">{q.section.split('-')[0]}</span>
+              </button>
             ))}
-          </ul>
+          </nav>
         </aside>
 
-        <section className="flex-1">
-          {q.section === 'speaking-writing' && (
-            <SpeakingQuestion question={q} practiceMode={practice} onNext={() => setIndex((i) => Math.min(questions.length - 1, i + 1))} onAnswer={(id, value) => setAnswers((a) => ({ ...a, [id]: value }))} />
-          )}
-          {q.section === 'reading' && (
-            <ReadingQuestion question={q} practiceMode={practice} onNext={() => setIndex((i) => Math.min(questions.length - 1, i + 1))} onAnswer={(id, value) => setAnswers((a) => ({ ...a, [id]: value }))} />
-          )}
-          {q.section === 'listening' && (
-            <ListeningQuestion question={q} practiceMode={practice} onNext={() => setIndex((i) => Math.min(questions.length - 1, i + 1))} onAnswer={(id, value) => setAnswers((a) => ({ ...a, [id]: value }))} />
-          )}
-        </section>
-      </main>
+        {/* Content Box Frame Wrapper */}
+        <main className="flex-1 flex flex-col justify-between overflow-hidden bg-white max-w-5xl mx-auto w-full border-x border-slate-200 shadow-sm">
+          <div className="flex-1 overflow-y-auto p-6 flex flex-col">
+            {children}
+          </div>
 
-      {practice && (
-        <div className="p-4 border-t">
-          <h4 className="font-semibold mb-2">Check Answers (Practice)</h4>
-          <div className="grid gap-2 md:grid-cols-3">
-            {questions.map((qq) => (
-              <div key={qq.id} className="p-2 border rounded">
-                <div className="text-sm font-medium">{qq.type}</div>
-                <div className="text-xs text-gray-600">Your answer: {answers[qq.id] ?? '—'}</div>
-                <div className="text-xs text-gray-500">Model: {qq.modelAnswer ?? '—'}</div>
+          {/* Conditional Practice Insights Frame Container */}
+          {isPracticeMode && (
+            <div className="border-t border-amber-200 bg-amber-50/60 p-4 shrink-0 max-h-48 overflow-y-auto">
+              <div className="flex items-center space-x-2 text-amber-800 font-bold text-xs uppercase tracking-wider mb-1">
+                <HelpCircle className="w-4 h-4 text-amber-700" />
+                <h3>Model Key Strategy Solution</h3>
               </div>
-            ))}
-          </div>
-          <div className="mt-3">
-            <strong>Score:</strong> {scoreAnswers(questions, answers).correct} / {scoreAnswers(questions, answers).total}
-          </div>
-        </div>
-      )}
+              <div className="text-xs text-amber-900 font-medium whitespace-pre-line leading-relaxed bg-white/80 p-2 rounded border border-amber-200/60">
+                {currentQuestion.modelAnswer}
+              </div>
+            </div>
+          )}
+
+          {/* Persistent Standard Footer Navigation Layer Panel */}
+          <footer className="h-12 min-h-[48px] bg-slate-100 border-t border-slate-200 px-6 flex items-center justify-between shrink-0">
+            <span className="text-[10px] tracking-wider text-slate-400 uppercase font-bold">Simulator Instance Active</span>
+            <div className="flex items-center space-x-2">
+              <button 
+                onClick={onPrev} 
+                disabled={currentIndex === 0} 
+                className="px-3 py-1 border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-40 text-slate-600 rounded text-xs font-bold transition flex items-center space-x-1"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                <span>Previous</span>
+              </button>
+              <button 
+                onClick={onNext} 
+                className="px-4 py-1 bg-[#0070c0] hover:bg-[#005fa3] text-white font-bold rounded text-xs tracking-wide transition flex items-center space-x-1 shadow-sm"
+              >
+                <span>{currentIndex === totalQuestions - 1 ? 'Finish Block' : 'Next Item'}</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </footer>
+        </main>
+      </div>
     </div>
-  )
-}
+  );
+};
