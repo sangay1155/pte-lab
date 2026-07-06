@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Mic, Square, Info } from 'lucide-react';
 import type { PTEQuestion } from '../types/pte';
 import { usePTEAudioRecorder } from '../hooks/usePTEAudioRecorder';
@@ -11,32 +11,52 @@ interface SpeakingQuestionProps {
 
 export const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({ question, isPracticeMode, onAnswer }) => {
   const {
-    recorderState,
-    countdown,
-    volumeData,
-    recordedBlob,
-    initiateRecordingSequence,
-    stopRecordingAction
-  } = usePTEAudioRecorder(3, question.timeLimitSeconds);
+    state,
+    preSeconds,
+    timeLeft,
+    audioBlob,
+    analyser,
+    prepareRecording,
+    stopRecording
+  } = usePTEAudioRecorder();
 
+  const [volumeData, setVolumeData] = useState<Uint8Array>(new Uint8Array(64));
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationRef = useRef<number | null>(null);
 
   useEffect(() => {
-    initiateRecordingSequence();
-  }, [question, initiateRecordingSequence]);
+    prepareRecording(3, question.timeLimitSeconds ?? 40);
+  }, [question, prepareRecording]);
 
   useEffect(() => {
-    if (recorderState === 'completed' && recordedBlob && onAnswer) {
+    if (state === 'completed' && audioBlob && onAnswer) {
       try {
         onAnswer(question.id, 'recording_saved')
       } catch {}
     }
-  }, [recorderState, recordedBlob, onAnswer])
+  }, [state, audioBlob, onAnswer, question.id])
+
+  // Volume data update loop from analyser node
+  useEffect(() => {
+    if (state !== 'recording' || !analyser) return;
+    let animId: number | null = null;
+    const buffer = new Uint8Array(analyser.frequencyBinCount);
+    
+    const loop = () => {
+      analyser.getByteTimeDomainData(buffer);
+      setVolumeData(new Uint8Array(buffer));
+      animId = requestAnimationFrame(loop);
+    };
+    
+    animId = requestAnimationFrame(loop);
+    return () => {
+      if (animId !== null) cancelAnimationFrame(animId);
+    };
+  }, [state, analyser]);
 
   // Real-time Canvas Waveform Rendering Loop
   useEffect(() => {
-    if (recorderState !== 'recording' || !canvasRef.current) {
+    if (state !== 'recording' || !canvasRef.current) {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
       return;
     }
@@ -94,7 +114,7 @@ export const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({ question, is
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [recorderState, volumeData]);
+  }, [state, volumeData]);
 
   return (
     <div className="space-y-6 flex-1 flex flex-col justify-between">
@@ -122,28 +142,28 @@ export const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({ question, is
         <div className="border border-slate-200 rounded-lg p-6 bg-slate-50 flex flex-col justify-between space-y-4">
           <div className="flex items-center justify-between border-b border-slate-200 pb-3">
             <div className="flex items-center space-x-2">
-              <Mic className={`w-4 h-4 ${recorderState === 'recording' ? 'text-red-500 animate-pulse' : 'text-slate-400'}`} />
+              <Mic className={`w-4 h-4 ${state === 'recording' ? 'text-red-500 animate-pulse' : 'text-slate-400'}`} />
               <span className="font-bold text-xs tracking-wider text-slate-600 uppercase">Recorded Answer Status</span>
             </div>
             <span className={`text-xs font-bold px-3 py-0.5 rounded uppercase tracking-wider ${
-              recorderState === 'idle' && 'bg-slate-200 text-slate-600' ||
-              recorderState === 'preparing' && 'bg-amber-500 text-white animate-pulse' ||
-              recorderState === 'recording' && 'bg-red-600 text-white' ||
+              state === 'idle' && 'bg-slate-200 text-slate-600' ||
+              state === 'preparing' && 'bg-amber-500 text-white animate-pulse' ||
+              state === 'recording' && 'bg-red-600 text-white' ||
               'bg-green-600 text-white'
             }`}>
-              {recorderState === 'preparing' ? `Current Countdown: ${countdown}` : recorderState}
+              {state === 'preparing' ? `Current Countdown: ${preSeconds}` : state}
             </span>
           </div>
 
           <div className="flex flex-col items-center justify-center py-4 flex-1">
-            {recorderState === 'preparing' && (
+            {state === 'preparing' && (
               <div className="text-center space-y-2">
                 <div className="text-sm text-slate-500 font-semibold uppercase tracking-widest">Beginning In</div>
-                <div className="text-5xl font-black text-slate-800">{countdown}</div>
+                <div className="text-5xl font-black text-slate-800">{preSeconds}</div>
               </div>
             )}
 
-            {recorderState === 'recording' && (
+            {state === 'recording' && (
               <div className="w-full space-y-4 flex flex-col items-center">
                 <canvas 
                   ref={canvasRef} 
@@ -152,7 +172,7 @@ export const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({ question, is
                   className="w-full max-w-md h-20 bg-white border border-slate-200 rounded shadow-inner"
                 />
                 <button
-                  onClick={stopRecordingAction}
+                  onClick={stopRecording}
                   className="flex items-center space-x-2 bg-red-600 hover:bg-red-700 text-white font-bold px-5 py-2 rounded text-xs uppercase tracking-wider transition shadow-sm"
                 >
                   <Square className="w-3.5 h-3.5 fill-white" />
@@ -161,15 +181,15 @@ export const SpeakingQuestion: React.FC<SpeakingQuestionProps> = ({ question, is
               </div>
             )}
 
-            {recorderState === 'completed' && (
+            {state === 'completed' && (
               <div className="text-center space-y-3 w-full">
                 <div className="text-sm font-bold text-slate-700 flex items-center justify-center space-x-2">
                   <span className="w-2 h-2 rounded-full bg-green-500"></span>
                   <span>Audio Response Audio Locked Successfully.</span>
                 </div>
-                {isPracticeMode && recordedBlob && (
+                {isPracticeMode && audioBlob && (
                   <div className="pt-2">
-                    <audio src={URL.createObjectURL(recordedBlob)} controls className="mx-auto h-8 w-64 accent-[#0070c0]" />
+                    <audio src={URL.createObjectURL(audioBlob)} controls className="mx-auto h-8 w-64 accent-[#0070c0]" />
                   </div>
                 )}
               </div>
